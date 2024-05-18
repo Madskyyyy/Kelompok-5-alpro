@@ -1,0 +1,81 @@
+import sys
+
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QVBoxLayout, QWidget, QFileDialog
+from PyQt5.QtGui import QPixmap
+import cv2
+import numpy as np
+
+class MainWindow(QMainWindow):
+    def _init_(self):
+        super().__init__()
+
+        self.setWindowTitle("Pengganti Warna Background Foto Formal")
+        self.setGeometry(100, 100, 800, 600)
+
+        self.image_label = QLabel(self)
+        self.image_label.setAlignment(Qt.AlignCenter)
+
+        self.load_button = QPushButton("Pilih Foto Formal", self)
+        self.load_button.clicked.connect(self.load_image)
+
+        self.convert_button = QPushButton("Ubah Warna Background", self)
+        self.convert_button.clicked.connect(self.convert_background)
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.image_label)
+        layout.addWidget(self.load_button)
+        layout.addWidget(self.convert_button)
+
+        central_widget = QWidget()
+        central_widget.setLayout(layout)
+        self.setCentralWidget(central_widget)
+
+        self.image = None
+
+    def load_image(self):
+        file_dialog = QFileDialog()
+        file_dialog.setNameFilter("Images (*.png *.jpg *.jpeg)")
+        file_dialog.setViewMode(QFileDialog.Detail)
+        file_dialog.setFileMode(QFileDialog.ExistingFile)
+        if file_dialog.exec_():
+            if file_paths:
+                image_path = file_paths[0]
+                self.image = cv2.imread(image_path)
+                self.display_image(image_path)
+            file_paths = file_dialog.selectedFiles()
+
+    def display_image(self, image_path):
+        pixmap = QPixmap(image_path)
+        pixmap = pixmap.scaledToWidth(600)
+        self.image_label.setPixmap(pixmap)
+
+    def convert_background(self):
+        if self.image is None:
+            return
+
+        hsv = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
+        lower_red = np.array([0, 120, 70])
+        upper_red = np.array([10, 255, 255])
+        mask1 = cv2.inRange(hsv, lower_red, upper_red)
+
+        lower_red = np.array([170, 120, 70])
+        upper_red = np.array([180, 255, 255])
+        mask2 = cv2.inRange(hsv, lower_red, upper_red)
+
+        mask = mask1 + mask2
+        mask = cv2.bitwise_not(mask)
+
+        new_bg_color = (255, 0, 0)  # Ubah ke warna biru
+        new_bg = np.ones_like(self.image) * new_bg_color
+        new_bg[mask != 0] = self.image[mask != 0]
+
+        new_image_path = "hasil_ubah_bg.jpg"
+        cv2.imwrite(new_image_path, new_bg)
+        self.display_image(new_image_path)
+
+if __name__== "__main__":
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec_())
